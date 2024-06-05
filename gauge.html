@@ -1,0 +1,210 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>Joystickové Dáta</title>
+  <!--Načítavame knižnice jQuery a Socket.IO -->
+  <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.5/socket.io.min.js"></script>
+  <!-- Knižnica pre kreslenie meradiel -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-gauges/gauge.min.js"></script>
+  <script type="text/javascript" charset="utf-8">
+    $(document).ready(function() {
+                                            // Gauge pre X hodnotu Joystika
+      var gaugeX = new RadialGauge({
+          renderTo: 'gaugeCanvasX',
+          width: 300,
+          height: 300,
+          units: "X-JOYSTICK",
+          minValue: 0,
+          maxValue: 1023,
+          majorTicks: [
+              "0", "100", "200", "300", "400", "500", "600", "700", "800", "900", "1000"
+          ],
+          minorTicks: 2,
+          strokeTicks: true,
+          highlights: [
+              {
+                  "from": 0.5,
+                  "to": 1,
+                  "color": "rgba(200, 50, 50, .75)"
+              }
+          ],
+          colorPlate: "#fff",
+          borderShadowWidth: 0,
+          borders: false,
+          needleType: "arrow",
+          needleWidth: 2,
+          needleCircleSize: 7,
+          needleCircleOuter: true,
+          needleCircleInner: false,
+          animationDuration: 300,
+          animationRule: "linear"
+      });
+      gaugeX.draw();
+
+      var gaugeY = new RadialGauge({                    // Gauge pre Y hodnotu Joystika
+          renderTo: 'gaugeCanvasY',
+          width: 300,
+          height: 300,
+          units: "Y-JOYSTICK",
+          minValue: 0,
+          maxValue: 1023,
+          majorTicks: [
+              "0", "100", "200", "300", "400", "500", "600", "700", "800", "900", "1000"
+          ],
+          minorTicks: 2,
+          strokeTicks: true,
+          highlights: [
+              {
+                  "from": 0.5,
+                  "to": 1,
+                  "color": "rgba(200, 50, 50, .75)"
+              }
+          ],
+          colorPlate: "#fff",
+          borderShadowWidth: 0,
+          borders: false,
+          needleType: "arrow",
+          needleWidth: 2,
+          needleCircleSize: 7,
+          needleCircleOuter: true,
+          needleCircleInner: false,
+          animationDuration: 300,
+          animationRule: "linear"
+      });
+      gaugeY.draw();
+
+      var namespace = '/test';                            // Pripojenie so serverom cez Socket.IO
+      var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);              //Spojenie so serverom Socket.IO
+
+      socket.on('connect', function() {                                                               //Funkcia, ktorá sa spustí po pripojení k serveru.
+        socket.emit('my_event', {data: 'Som pripojený!', value: 0});
+      });
+
+      socket.on('my_response', function(msg) {                                                           //Funkcia, spracuje hodnoty a nastavy ich do meradel
+        console.log('Prijímanie dát zo servera', msg);
+         if (msg.data === 'Disconnected!') {
+        $('#log').append('Y-Joystick: Disconnected, X-Joystick: Disconnected, Riadok: Disconnected, Stĺpec: Disconnected!<br>');
+    } else if (msg.data.message) {
+        $('#log').append(msg.data.message + '<br>');
+    } else {
+        var ux = msg.data.ux !== undefined ? msg.data.ux : 'Сonnected';
+        var uy = msg.data.uy !== undefined ? msg.data.uy : 'Сonnected';
+        var xValue = msg.data.x !== undefined ? msg.data.x : 'Сonnected';
+        var yValue = msg.data.y !== undefined ? msg.data.y : 'Сonnected';
+       
+
+        console.log('Y-Joystick: ' + uy + ', X-Joystick: ' + ux + ', Riadok: ' + xValue+ ', Stlpec: ' + yValue);
+       
+        $('#log').append('Received #' + msg.data.count + ': Y-Joystick: ' + uy + ',  X-Joystick: ' + ux + ',  Riadok: ' + xValue + ', Stlpec: ' + yValue+'<br>');
+        
+          gaugeX.value = ux;                            //hodnota x Joystika, ktora sa zobrazi na Gauge x
+          gaugeX.draw();
+
+          gaugeY.value = uy;                            //Hodnota y Joystika, ktora sa zobrazi na Gauge y
+          gaugeY.draw();
+        }
+      });
+
+      $('form#emit').submit(function(event) {                         //Nastavenie intervalu odosielania dát na server
+        event.preventDefault();
+        socket.emit('set_interval', {interval: $('#emit_value').val()});
+        $('#emit_value').val('');
+        return false;
+      });
+
+      $('form#connect').submit(function(event) {                       //Pripojenia k serveru
+        event.preventDefault();
+        socket.connect();
+        return false;
+      });
+
+  
+
+      $('form#start').submit(function(event) {                        //Začatie generovania dát
+        event.preventDefault();
+        socket.emit('start_generation');
+        generation = true;
+        return false;
+      });
+
+      $('form#stop').submit(function(event) {                        //Zastavenie generovania dát
+        event.preventDefault();
+        socket.emit('stop_generation');
+        generation = false;
+        return false;
+      });
+
+      $('form#disconnect').submit(function(event) {                    //Odpojenie od servera
+        event.preventDefault();
+        socket.emit('disconnect_request');
+        return false;
+      });
+    });
+  </script>
+  <style>
+    .button-row input[type="submit"] {                            /*štýly pre tlačidlá v riadku*/                  
+      font-size: 16px;                                           /* Veľkosť textu tlačidla */
+      padding: 10px 20px;                                         /* Odstupy okolo textu */
+      width: 150px;                                                  /* Šírka tlačidla */
+      height: 40px;                                                /* Výška tlačidla */
+      margin-right: 10px;                                             /* Odstup vpravo */
+    }
+    #start input[type="submit"] {                                    /*Zelené pozadie pre tlačidlo "Start"*/
+      background-color: green;
+    }
+    #stop input[type="submit"] {                                       /*Červene pozadie pre tlačidlo "Stop"*/
+      background-color: red;
+    }
+    #connect input[type="submit"] {                                      /*Modre pozadie pre tlačidlo "Open"*/
+      background-color: blue;
+    }
+    #disconnect input[type="submit"] {                                    /*Svetlozelene pozadie pre tlačidlo "Close"*/
+      background-color: rgb(17, 255, 0);
+    }
+    .button-row {                                                         /*Zobrazenie tlačidiel v riadku"*/
+      display: flex;
+    }
+
+    .gauges-container {                                                   /*Pozicia meradel"*/
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+    .gauge {
+      margin-bottom: 10px;                                                   /*Odstup medzi meradlami"*/
+    }
+                                                                             /*Telo stránky"*/
+
+  </style>                                                              
+</head>                           
+<body>
+  <h1>Gauge</h1>
+  <h2>Odoslať:</h2>
+  <form id="emit" method="POST" action="#">
+    <input type="text" name="emit_value" id="emit_value" placeholder="Interval (ms)">
+    <input type="submit" value="Odoslať">
+  </form>
+  <div class="button-row">
+    <form id="start" method="POST" action="#">
+      <input type="submit" value="Start">
+    </form>
+    <form id="stop" method="POST" action="#">
+      <input type="submit" value="Stop">
+    </form>
+    <form id="connect" method="POST" action="#">
+      <input type="submit" value="Open">
+    </form>
+    <form id="disconnect" method="POST" action="#">
+      <input type="submit" value="Close">
+    </form>
+  </div>
+  <h2>Prijaté:</h2>
+  <div id="log"></div>
+
+  <div class="gauges-container">
+    <canvas id="gaugeCanvasX" class="gauge"></canvas> 
+    <canvas id="gaugeCanvasY" class="gauge"></canvas> 
+  </div>
+</body>
+</html>
