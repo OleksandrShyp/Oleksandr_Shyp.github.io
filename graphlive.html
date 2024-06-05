@@ -1,0 +1,170 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>Joystick Data Visualization</title>
+    <!--Načítavame knižnice jQuery a Socket.IO -->
+  <script src="//code.jquery.com/jquery-1.4.2.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.5/socket.io.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script type="text/javascript" charset="utf-8">
+  
+    $(document).ready(function() {                           //Funkcia pre uchovania dat a kreslenia grafu
+      var x = [];                                               //Uchovania dat casu  
+      var y_ux = [];                                            //Uchovania dat UX joystika
+      var y_uy = [];                                            //Uchovania dat UY joystika
+
+      var trace_ux = {                                          //Object UX pre Plotly
+        x: x,
+        y: y_ux,
+        mode: 'lines',                                          // Kreslenia grafu
+        name: 'UX',
+        line: { shape: 'spline' }
+      };
+
+      var trace_uy = {                                          //Object UY pre Plotly
+        x: x,
+        y: y_uy,
+        mode: 'lines',                                          // Kreslenia grafu
+        name: 'UY',
+        line: { shape: 'spline' }
+      };
+
+      var layout = {                                            //Model grafu
+        title: 'UX and UY Data',
+        xaxis: {
+            title: 'Time (count)',
+        },
+        yaxis: {
+            title: 'Values',
+        }
+      };
+
+      var data = [trace_ux, trace_uy];                        //Kopirovania datových objectov do polia
+
+      Plotly.newPlot('plotdiv', data, layout);                //Graf v elemente plotdiv s definovanými dátami
+
+      var namespace = '/test';                                  //Spojenie so serverom cez Socket.IO
+      var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
+      socket.on('connect', function() {
+        socket.emit('my_event', {data: 'I\'m connected!', value: 1});
+      });
+
+
+
+      socket.on('my_response', function(msg) {                                  //Nacitanie dat do grafika                 
+    if (msg.data === 'Disconnected!') {
+        $('#log').append('Y-Joystick: Disconnected, X-Joystick: Disconnected, Riadok: Disconnected, Stĺpec: Disconnected!<br>');
+    } else if (msg.data.message) {
+        $('#log').append(msg.data.message + '<br>');
+    } else {
+        var ux = msg.data.ux !== undefined ? msg.data.ux : 'Сonnected';
+        var uy = msg.data.uy !== undefined ? msg.data.uy : 'Сonnected';
+        var xValue = msg.data.x !== undefined ? msg.data.x : 'Сonnected';
+        var yValue = msg.data.y !== undefined ? msg.data.y : 'Сonnected';
+       
+
+        console.log('Y-Joystick: ' + uy + ', X-Joystick: ' + ux + ', Riadok: ' + xValue+ ', Stlpec: ' + yValue);
+       
+        $('#log').append('Received #' + msg.data.count + ': Y-Joystick: ' + uy + ',  X-Joystick: ' + ux + ',  Riadok: ' + xValue + ', Stlpec: ' + yValue+'<br>');
+        
+        x.push(msg.data.count);                                                    //Pridávanie novych hodnot
+        y_ux.push(ux);
+        y_uy.push(uy);
+
+        Plotly.update('plotdiv', { x: [x], y: [y_ux, y_uy] });                    ///Aktualitacia grafu s novymi datami
+    }
+});
+
+
+      $('form#emit').submit(function(event) {                                // Nastavenie intervalu odosielania dát na server.
+        event.preventDefault();
+        socket.emit('set_interval', {interval: $('#emit_value').val()});
+        $('#emit_value').val('');
+        return false;
+      });
+
+      $('form#connect').submit(function(event) {                            //Pripojenia k serveru
+        event.preventDefault();
+        socket.connect();
+        return false;
+      });
+
+      $('form#start').submit(function(event) {                                //Začatie generovania dát
+        event.preventDefault();
+        socket.emit('start_generation');
+        return false;
+      });
+
+      $('form#stop').submit(function(event) {                                  ///Zastavenie generovania dát
+        event.preventDefault();
+        socket.emit('stop_generation');
+        return false;
+      });
+
+      $('form#disconnect').submit(function(event) {                            //Odpojenie od servera 
+        event.preventDefault();
+        socket.emit('disconnect_request');
+        return false;
+      });
+    });
+  </script>
+  <style>
+    .button-row input[type="submit"] {                                         /*štýly pre tlačidlá v riadku*/   
+      font-size: 16px;                                                          /* Veľkosť textu tlačidla */
+      padding: 10px 20px;                                                       /* Odstupy okolo textu */
+      width: 150px;                                                              /* Šírka tlačidla */
+      height: 40px;                                                              /* Výška tlačidla */
+      margin-right: 10px;                                                          /* Odstup vpravo */
+    }
+    #start input[type="submit"] {                                                   /*Zelené pozadie pre tlačidlo "Start"*/
+      background-color: green;
+    }
+    #stop input[type="submit"] {                                                    /*Červene pozadie pre tlačidlo "Stop"*/
+      background-color: red;
+    }
+    #connect input[type="submit"] {                                                  /*Modre pozadie pre tlačidlo "Open"*/
+      background-color: blue;
+    }
+    #disconnect input[type="submit"] {                                                /*Svetlozelene pozadie pre tlačidlo "Close"*/
+      background-color: rgb(17, 255, 0); 
+    }
+    .button-row {                                                                      /*Zobrazenie tlačidiel v riadku"*/
+      display: flex;
+    }
+    #plotdiv {                                                                         /*Pozicia grafu"*/
+      width: 600px;
+      height: 400px;
+      position: fixed;
+      top: 20px; 
+      right: 20px; 
+    }
+                                                                                          /*Telo stránky"*/
+  </style>
+</head>
+<body>
+  <h1>Graf</h1>
+
+  <h2>Send:</h2>
+  <form id="emit" method="POST" action="#">
+    <input type="text" name="emit_value" id="emit_value" placeholder="Interval (ms)">
+    <input type="submit" value="Odoslať">
+  </form>
+  <div class="button-row">
+    <form id="start" method="POST" action="#">
+      <input type="submit" value="Start">
+    </form>
+    <form id="stop" method="POST" action="#">
+      <input type="submit" value="Stop">
+    </form>
+    <form id="connect" method="POST" action="#">
+      <input type="submit" value="Open">
+    </form>
+    <form id="disconnect" method="POST" action="#">
+      <input type="submit" value="Close">
+    </form>
+  </div>
+  <h2>Received:</h2>
+  <div id="log"></div>
+  <div id="plotdiv"></div>
+</body>
+</html>
