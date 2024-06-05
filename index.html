@@ -1,0 +1,121 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>Joystickové Dáta</title>
+  <!-- Načítavame knižnice jQuery a Socket.IO -->
+  <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.5/socket.io.min.js"></script>
+  <script type="text/javascript" charset="utf-8">
+
+    $(document).ready(function() {                             //Pripojenie k Serveru
+      namespace = '/test';
+      var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
+
+      socket.on('connect', function() {
+        socket.emit('my_event', {'message': 'Connected!', 'value': 1});
+      });
+
+      socket.on('my_response', function(msg) {                           //Spracovanie Prijatých Správ
+        if (msg.data === 'Disconnected!') {
+          $('#log').append('Y-Joystick: Disconnected, X-Joystick: Disconnected, Riadok: Disconnected, Stĺpec: Disconnected!<br>');
+        } else if (msg.data.message) {
+          $('#log').append('Správa: ' + msg.data.message + '<br>');
+        } else {
+          var ux = msg.data.ux !== undefined ? msg.data.ux : "Connected";
+          var uy = msg.data.uy !== undefined ? msg.data.uy : "Connected";
+          var x = msg.data.x !== undefined ? msg.data.x : "Connected";
+          var y = msg.data.y !== undefined ? msg.data.y : "Connected";
+          var count = msg.data.count !== undefined ? msg.data.count : "Connected";
+          
+          $('#log').append('Count: ' + count + ', Y-Joystick: ' + uy + ', X-Joystick: ' + ux + ', Riadok: ' + x + ', Stĺpec: ' + y + '<br>');
+        }
+      });
+
+
+
+      $('form#emit').submit(function(event) {                                  // Nastavenie intervalu odosielania dát na server.
+        event.preventDefault();
+        socket.emit('set_interval', {interval: $('#emit_value').val()});
+        $('#emit_value').val('');
+        return false;
+      });
+
+      $('form#connect').submit(function(event) {                                     //Pripojenia k serveru
+        event.preventDefault();
+        socket.connect();
+        return false;
+      });
+
+      $('form#start').submit(function(event) {                                       //Začatie generovania dát
+        event.preventDefault();
+        socket.emit('start_generation');
+        generation = true;
+        return false;
+      });
+
+      $('form#stop').submit(function(event) {                                         //Zastavenie generovania dát
+        event.preventDefault();
+        socket.emit('stop_generation');
+        generation = false;
+        return false;
+      });
+
+      $('form#disconnect').submit(function(event) {                                    //Odpojenie od servera 
+        event.preventDefault();
+        socket.emit('disconnect_request');
+        return false;
+      });
+
+    });
+  </script>
+  <style>
+    .button-row input[type="submit"] {                                                     /*štýly pre tlačidlá v riadku*/   
+      font-size: 16px;                                                                       /* Veľkosť textu tlačidla */       
+      padding: 10px 20px;                                                                     /* Odstupy okolo textu */
+      width: 150px;                                                                             /* Šírka tlačidla */
+      height: 40px;                                                                              /* Výška tlačidla */
+      margin-right: 10px;                                                                         /* Odstup vpravo */
+    }
+    #start input[type="submit"] {                                                       /*Zelené pozadie pre tlačidlo "Start"*/
+      background-color: green;
+    }
+    #stop input[type="submit"] {                                                         /*Červene pozadie pre tlačidlo "Stop"*/
+      background-color: red;
+    }
+    #connect input[type="submit"] {                                                       /*Modre pozadie pre tlačidlo "Open"*/
+      background-color: blue;
+    }
+    #disconnect input[type="submit"] {                                                    /*Svetlozelene pozadie pre tlačidlo "Close"*/
+      background-color: rgb(17, 255, 0);
+    }
+    .button-row {                                                                           /*Zobrazenie tlačidiel v riadku"*/
+      display: flex; 
+    }
+                                                                                            /*Telo stránky"*/
+  </style>
+</head>
+<body>
+  <h1>WEB-SERVER</h1>
+  <h2>Odoslať:</h2>
+  <form id="emit" method="POST" action="#">
+    <input type="text" name="emit_value" id="emit_value" placeholder="Interval (ms)">
+    <input type="submit" value="Odoslať">
+  </form>
+  <div class="button-row">
+    <form id="start" method="POST" action="#">
+      <input type="submit" value="Start">
+    </form>
+    <form id="stop" method="POST" action="#">
+      <input type="submit" value="Stop">
+    </form>
+    <form id="connect" method="POST" action="#">
+      <input type="submit" value="Open">
+    </form>
+    <form id="disconnect" method="POST" action="#">
+      <input type="submit" value="Close">
+    </form>
+  </div>
+  <h2>Prijaté:</h2>
+  <div id="log"></div>
+</body>
+</html>
